@@ -17,6 +17,7 @@ import (
 	"api-tests-template/internal/managers/auth"
 	authModels "api-tests-template/internal/managers/auth/models"
 	favoritesManager "api-tests-template/internal/managers/favorites"
+	favoritesModels "api-tests-template/internal/managers/favorites/models"
 	"api-tests-template/internal/utils"
 	base "api-tests-template/tests"
 )
@@ -68,10 +69,8 @@ func (s *TestSuite) TestFavoritePositive() {
 
 	s.Run("Добавляем чужое объявление в избранное", func() {
 		disableFavoriteCleanup = registerFavoriteCleanup(testContext, s.helperLoginData.Token, advertisement.ID)
-		favorite, errorResponse := favoritesManager.AddFavorite(s.T(), s.helperLoginData.Token, advertisement.ID, http.StatusCreated)
+		favorite := addFavoriteAndRequireSuccess(s.T(), s.helperLoginData.Token, advertisement.ID)
 
-		requireEmptyErrorResponse(s.T(), errorResponse)
-		require.NotEmpty(s.T(), favorite.FavoriteID, "сервер не вернул favorite_id")
 		require.Equal(s.T(), advertisement.ID, favorite.Advertisement.ID, "id объявления в избранном не совпадает")
 	})
 
@@ -99,10 +98,7 @@ func (s *TestSuite) TestFavoritePositive() {
 
 	s.Run("Повторно добавляем объявление в избранное", func() {
 		disableFavoriteCleanup = registerFavoriteCleanup(testContext, s.helperLoginData.Token, advertisement.ID)
-		favorite, errorResponse := favoritesManager.AddFavorite(s.T(), s.helperLoginData.Token, advertisement.ID, http.StatusCreated)
-
-		requireEmptyErrorResponse(s.T(), errorResponse)
-		require.NotEmpty(s.T(), favorite.FavoriteID, "сервер не вернул favorite_id")
+		addFavoriteAndRequireSuccess(s.T(), s.helperLoginData.Token, advertisement.ID)
 	})
 
 	s.Run("Удаляем само объявление", func() {
@@ -207,10 +203,7 @@ func (s *TestSuite) TestFavoriteBusinessRestrictions() {
 		registerAdvertisementCleanup(testContext, s.loginData.Token, advertisement.ID)
 		registerFavoriteCleanup(testContext, s.helperLoginData.Token, advertisement.ID)
 
-		favorite, errorResponse := favoritesManager.AddFavorite(s.T(), s.helperLoginData.Token, advertisement.ID, http.StatusCreated)
-
-		requireEmptyErrorResponse(s.T(), errorResponse)
-		require.NotEmpty(s.T(), favorite.FavoriteID, "сервер не вернул favorite_id")
+		addFavoriteAndRequireSuccess(s.T(), s.helperLoginData.Token, advertisement.ID)
 
 		unexpectedFavorite, duplicateError := favoritesManager.AddFavorite(s.T(), s.helperLoginData.Token, advertisement.ID, http.StatusConflict)
 
@@ -218,6 +211,17 @@ func (s *TestSuite) TestFavoriteBusinessRestrictions() {
 		require.Equal(s.T(), "already_exists", duplicateError.Error, "тип ошибки не совпадает")
 		require.Equal(s.T(), "Advertisement is already in favorites", duplicateError.Message, "сообщение ошибки не совпадает")
 	})
+}
+
+// addFavoriteAndRequireSuccess добавляет объявление в избранное и проверяет успешный ответ
+func addFavoriteAndRequireSuccess(t *testing.T, token, advertisementID string) favoritesModels.Favorite {
+	t.Helper()
+
+	favorite, errorResponse := favoritesManager.AddFavorite(t, token, advertisementID, http.StatusCreated)
+	requireEmptyErrorResponse(t, errorResponse)
+	require.NotEmpty(t, favorite.FavoriteID, "сервер не вернул favorite_id")
+
+	return favorite
 }
 
 // createAdvertisement создает объявление для предусловий сценария

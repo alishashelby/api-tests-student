@@ -18,10 +18,10 @@ func GetAdvertisementsList(t *testing.T, token, text string) models.Advertisemen
 	defer rawResponse.Body.Close()
 
 	body, err := io.ReadAll(rawResponse.Body)
-	require.NoError(t, err)
+	require.NoError(t, err, "не удалось прочитать тело ответа поиска объявлений")
 
 	response := models.AdvertisementsList{}
-	require.NoError(t, json.Unmarshal(body, &response))
+	require.NoError(t, json.Unmarshal(body, &response), "не удалось разобрать JSON ответа поиска объявлений")
 
 	return response
 }

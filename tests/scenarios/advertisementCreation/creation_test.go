@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	invalidToken   = "incorrect_token"
-	searchTimeout  = 10 * time.Second
-	searchInterval = 200 * time.Millisecond
+	invalidToken            = "incorrect_token"
+	invalidRequestErrorCode = "invalid_request"
+	searchTimeout           = 10 * time.Second
+	searchInterval          = 200 * time.Millisecond
 )
 
 type TestSuite struct {
@@ -65,6 +66,8 @@ func (s *TestSuite) TestCreateAdvertisementPositive() {
 		require.Empty(s.T(), errorResponse.Message, "в позитивном ответе присутствует сообщение об ошибке")
 		require.Nil(s.T(), errorResponse.Details, "в позитивном ответе присутствуют детали ошибки")
 		require.NotEmpty(s.T(), createdAdvertisement.ID, "сервер не вернул id созданного объявления")
+		require.Len(s.T(), createdAdvertisement.Photos, 1, "ответ создания содержит неверное количество фотографий")
+		require.NotEmpty(s.T(), createdAdvertisement.Photos[0].ID, "ответ создания не содержит id фотографии")
 
 		registerAdvertisementCleanup(testContext, s.loginData.Token, createdAdvertisement.ID)
 		assertAdvertisementMatchesRequest(s.T(), createdAdvertisement, request)
@@ -99,7 +102,8 @@ func (s *TestSuite) TestCreateAdvertisementPositive() {
 		photos := advertisementsManager.GetAdvertisementPhotos(s.T(), s.loginData.Token, createdAdvertisement.ID, http.StatusOK)
 
 		require.Len(s.T(), photos, 1, "количество фотографий объявления не совпадает")
-		require.NotEmpty(s.T(), photos[0].ID, "id фотографии пустой")
+		require.Equal(s.T(), createdAdvertisement.Photos[0].ID, photos[0].ID,
+			"id фотографии из GET /photos не совпадает с id фотографии из ответа создания")
 		require.NotEmpty(s.T(), photos[0].URL, "URL фотографии пустой")
 		require.NotEmpty(s.T(), photos[0].CreatedAt, "время создания фотографии пустое")
 
@@ -119,7 +123,7 @@ func (s *TestSuite) TestCreateAdvertisementValidation() {
 			changeRequest: func(request *advertisementsModels.CreateAdvertisementRequest) {
 				request.Title = nil
 			},
-			expectedError:   "invalid_request",
+			expectedError:   invalidRequestErrorCode,
 			expectedMessage: "title is required",
 		},
 		{
@@ -128,7 +132,7 @@ func (s *TestSuite) TestCreateAdvertisementValidation() {
 				emptyTitle := ""
 				request.Title = &emptyTitle
 			},
-			expectedError:   "invalid_request",
+			expectedError:   invalidRequestErrorCode,
 			expectedMessage: "title is required",
 		},
 		{
@@ -137,7 +141,7 @@ func (s *TestSuite) TestCreateAdvertisementValidation() {
 				longTitle := strings.Repeat("a", 51)
 				request.Title = &longTitle
 			},
-			expectedError:   "invalid_request",
+			expectedError:   invalidRequestErrorCode,
 			expectedMessage: "title must not exceed 50 characters provided 51",
 		},
 		{
@@ -145,7 +149,7 @@ func (s *TestSuite) TestCreateAdvertisementValidation() {
 			changeRequest: func(request *advertisementsModels.CreateAdvertisementRequest) {
 				request.Description = nil
 			},
-			expectedError:   "invalid_request",
+			expectedError:   invalidRequestErrorCode,
 			expectedMessage: "description is required",
 		},
 		{
@@ -154,7 +158,7 @@ func (s *TestSuite) TestCreateAdvertisementValidation() {
 				negativePrice := -1.0
 				request.Price = &negativePrice
 			},
-			expectedError:   "invalid_request",
+			expectedError:   invalidRequestErrorCode,
 			expectedMessage: "price must be between 0 and 1000000 inclusive",
 		},
 		{
@@ -163,7 +167,7 @@ func (s *TestSuite) TestCreateAdvertisementValidation() {
 				zeroQuantity := 0
 				request.Quantity = &zeroQuantity
 			},
-			expectedError:   "invalid_request",
+			expectedError:   invalidRequestErrorCode,
 			expectedMessage: "quantity must be between 1 and 100 inclusive",
 		},
 		{
@@ -171,7 +175,7 @@ func (s *TestSuite) TestCreateAdvertisementValidation() {
 			changeRequest: func(request *advertisementsModels.CreateAdvertisementRequest) {
 				request.PhotoPaths = nil
 			},
-			expectedError:   "invalid_request",
+			expectedError:   invalidRequestErrorCode,
 			expectedMessage: "at least 1 photo is required",
 		},
 	}
